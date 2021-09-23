@@ -1,71 +1,70 @@
-import PySimpleGUIQt as sg
-# import PySimpleGUIWx as sg
-# import PySimpleGUI as sg
+import PySimpleGUI as sg
 from threading import Event, Thread
 import threading
 from multiprocessing import Process
+from psgtray import SystemTray
 
-navAbrir = 'True'
 from win10toast import ToastNotifier
 import time
 from datetime import datetime, timedelta
 
-
-# toaster.show_toast("Example two",
-# "This notification is in it's own thread!",
-# icon_path=None,
-# duration=5,
-# threaded=True)
-# # Wait for threaded notification to finish
-# while toaster.notification_active(): time.sleep(0.1)
-
-# menu_def = ['BLANK', ['&Start', '---', '&Stop', '---', 'E&xit']]
-
-# tray = sg.SystemTray(menu=menu_def, filename=r'icon.png')
-
-# def contador(contTemp):
-#     contTemp += 1
-#     print(contTemp)
-#     time.sleep(1)
-
-
-# tray.ShowMessage('title', 'message', time=1000000)
-
-# while True:  # The event loop
-#     menu_item = tray.read()
-#     print('99', menu_item)
-#     if menu_item == 'Exit':
-#         break
-#     elif menu_item == 'Start':
-#         sg.popup('Iniciando o Pomodoro')
-#     elif menu_item == 'Stop':
-#         sg.popup('Finalizando o Pomodoro')
 
 
 class interface:
     def __init__(self):
 
         sg.theme('DarkAmber')
+        tooltip = 'Tooltip'
 
+        menu_def = ['', ['Show Window', 'Hide Window', '---',  'INICIAR', '---', 'ZERAR', '---', 'Exit']]
         layout = [[sg.Text('00:00', font=('Helvetica', 60), justification='center', key='-OUTPUT-')],      
-                [sg.Button('INICIAR', key='-START-'), sg.Button('ZERAR', key='-BREAK-')]]      
+                [sg.Button('INICIAR', key='-START-'), sg.Button('ZERAR', key='-BREAK-'), sg.Button('FECHAR', key='-STOP-')]]      
 
-        self.janela = sg.Window('Pomodoro', layout)      
+        self.janela = sg.Window('Pomodoro', layout, finalize=True, enable_close_attempted_event=True)      
 
+        tray = SystemTray(menu_def, single_click_events=False, window=self.janela, tooltip=tooltip, icon='icon.png')
+        # tray.show_message('System Tray', 'System Tray Icon Started!')
+        
         while True:
             event, values = self.janela.read() 
             self.sinalParar = False
 
             print(event, values)       
-            if event == sg.WIN_CLOSED or event == 'Exit':
-                break      
+            if event == tray.key:
+                event = values[event]
+            
+            if event in (sg.WIN_CLOSED, 'Exit'):
+                break
+            if event == '-STOP-':
+                break
             elif event == '-START-':
                 print("Aqui 1")
+                threading.Thread(target=self.iniciarContagemPomo, args=(), daemon=True).start()
+            elif event == 'INICIAR':
+                print("Aqui 1 1")
                 threading.Thread(target=self.iniciarContagemPomo, args=(), daemon=True).start()
             elif event == '-BREAK-':
                 print("Aqui 2")
                 self.sinalParar = True
+            elif event == 'ZERAR':
+                print("Aqui 2 2")
+                self.sinalParar = True
 
+            elif event in ('Show Window', sg.EVENT_SYSTEM_TRAY_ICON_DOUBLE_CLICKED):
+                self.janela.un_hide()
+                self.janela.bring_to_front()
+            elif event in ('Hide Window', sg.WIN_CLOSE_ATTEMPTED_EVENT):
+                self.janela.hide()
+                tray.show_icon()
+            elif event == 'Hide Icon':
+                tray.hide_icon()
+            elif event == 'Show Icon':
+                tray.show_icon()
+            elif event == 'Change Tooltip':
+                tray.set_tooltip(values['-IN-'])
+
+
+        tray.close()            # optional but without a close, the icon may "linger" until moused over
         self.janela.close()
 
     def iniciarContagemPomo(self):
@@ -80,11 +79,10 @@ class interface:
         
     def notificarInicioPomo(self):
         try:
-            sg.SystemTray.notify('Notification Title', 'This is the notification message')
             # notifica a pessoa com um tempo de 25min
             toaster.show_toast("Pomodoro",
             "Iniciando contagem por 25min.",
-            duration=10)
+            duration=5)
         except Exception as e:
             print("Erro toaster", e)
 
@@ -102,7 +100,7 @@ class interface:
             # notifica a pessoa com um tempo de 5min
             toaster.show_toast("Pomodoro",
             "Iniciando pausa de 5 min.",
-            duration=10)
+            duration=5)
         except Exception as e:
             print("Erro toaster", e)
 
